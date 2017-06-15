@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import skew
 from sklearn.preprocessing import LabelBinarizer
 import pickle
-
+import os
 
 ''' numeric features
 ['MSSubClass', 'LotFrontage', 'LotArea', 'OverallQual', 'OverallCond',
@@ -47,18 +47,22 @@ class Data():
         self.test_data      = []
         self.test_label     = []
 
-    def read_train_data(self, data_path, encoders_path=None, train_ratio=0.8):
+    def read_train_data(self, data_path, encoder_path, train_ratio=0.8):
         if train_ratio > 1 or train_ratio < 0:
             assert False, '[data] train_ratio is not valid !!!'
+
+        # remove the current encoder is existing
+        if os.path.exists(encoder_path):
+            os.remove(encoder_path)
 
         # load data
         # must set keep_default_na False, otherwise it will keep the default NA
         # that causes the values of feature is not only string but also number
-        df = pd.read_csv(data_path, keep_default_na=False)
+        df = pd.read_csv(data_path) #, keep_default_na=False)
         df = df.drop(['Id'], 1)
 
         encoded_data = []
-        encoders = [] if not encoders_path else pickle.load(open(encoders_path, 'rb'))
+        encoders = []
 
         # visualize data
         #visualize_data(df)
@@ -68,24 +72,42 @@ class Data():
             data = df[feature]
 
             encoder = None
-            if df[feature].dtype == 'object': # categorical feature
-                print(feature)
+            if df[feature].dtypes == 'object': # categorical feature
+                print('[data] cate feature: ' + feature)
+                data.fillna(value='NA', axis=0, inplace=True)
                 encoder = LabelBinarizer()
-                encoder.fit(list(set(df[feature])))
+                encoder.fit(list(set(data)))
                 data = encoder.transform(data)
             else: # numeric features
+                print('[data] numeric feature: ' + feature)
+                data.fillna(value=data.mean(), axis=0, inplace=True)
                 df[feature] = df[feature].fillna(df[feature].mean())
-                if skew(df[feature]) > 0.75:
-                    df[feature] = np.log1p(df[feature])
 
             data = np.array(data, dtype=np.float32)
             encoded_data.append(data)
             encoders.append(encoder)
-        pickle.dump(encoders, open('result/encoder/encoders.pickle', 'wb'))
+        pickle.dump(encoders, open(encoder_path, 'wb'))
+
+        # normalize data
+        encoded_data = [np.log1p(da) for da in encoded_data]
+
+        # generate new features after applying encoder
+        num_cur_features = len(encoded_data)
+        num_examples = len(encoded_data[0])
+        all_data = []
+        for i in range(num_examples):
+            data_per_example = []
+            for j in range(num_cur_features):
+                if type(encoded_data[j][i]) is np.ndarray:
+                    data_per_example.extend( encoded_data[j][i] )
+                else:
+                    data_per_example.extend( [encoded_data[j][i]] )
+            all_data.append(data_per_example)
+        all_data = np.asarray(all_data)
 
         # load data
-        data = encoded_data[:-1]
-        label = encoded_data[-1]
+        data = all_data[:,:-1]
+        label = all_data[:,-1]
 
         # split indices
         num_data = data.shape[0]
@@ -116,6 +138,7 @@ class Data():
         print('[data] shape of eval label = {0}'.format(self.eval_label.shape))
 
     def read_test_data(self, data_path):
+        '''
         df = pd.read_csv(data_path)
 
         self.test_data = df.values[:,:].reshape([-1, 28, 28, 1])
@@ -123,6 +146,7 @@ class Data():
 
         print('[data] shape of test data = {0}'.format(self.test_data.shape))
         print('[data] shape of test label = None')
+        '''
 
     def get_train_data(self):
         return self.train_data

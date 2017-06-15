@@ -5,8 +5,9 @@ from enum import Enum
 
 
 class eKey(Enum):
-    train_path       = 'train_path'
-    test_path        = 'data_path'
+    train_path      = 'train_path'
+    test_path       = 'data_path'
+    encoder_path    = 'encoder_path'
 
     log_dir         = 'log_dir'
     checkpoint_dir  = 'checkpoint_dir'
@@ -30,21 +31,21 @@ def get_config():
 
     config[eKey.train_path]    = 'data/train.csv'
     config[eKey.test_path]     = 'data/test.csv'
+    config[eKey.encoder_path]  = 'data/encoder.pickle'
 
     config[eKey.log_dir]       = 'result/log/'
     config[eKey.checkpoint_dir]= 'result/checkpoint/'
     config[eKey.output_dir]    = 'result/output/'
 
     config[eKey.train_ratio]   = 0.9999
-    config[eKey.batch_size]    = 100
+    config[eKey.batch_size]    = 50
     config[eKey.num_epoch]     = 10000
     config[eKey.eval_step]     = 5
 
     config[eKey.data_dtype]    = np.float32
-    config[eKey.label_dtype]   = np.int64
+    config[eKey.label_dtype]   = np.float32
 
     config[eKey.learning_rate] = 0.0001
     config[eKey.dropout]       = 0.75
-    config[eKey.l2_beta]       = 0.0001
 
     return config
