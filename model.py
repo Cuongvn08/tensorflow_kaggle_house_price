@@ -10,30 +10,27 @@ class Model:
         self.weights = {}
         self.biases  = {}
 
-    def logit(self, data, isTrain=True, dropout=0.7):
+    def logit(self, data, isTrain=True, dropout=0.7, logger=None):
         print('[model] data shape = {0}'.format(data.shape))
 
         with tf.variable_scope('fc1') as scope:
-            data = self.fc(data, 512, scope.name + '_1', 'relu')
-            data = self.fc(data, 512, scope.name + '_2', 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 512, scope.name, 'relu')
+            #data = self.dropout(data, isTrain, dropout)
             print('[model] data shape at fc1 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc2') as scope:
-            data = self.fc(data, 128, scope.name + '_1', 'relu')
-            data = self.fc(data, 128, scope.name + '_2', 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 128, scope.name, 'relu')
+            #data = self.dropout(data, isTrain, dropout)
             print('[model] data shape at fc2 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc3') as scope:
-            data = self.fc(data, 64, scope.name + '_1', 'relu')
-            data = self.fc(data, 64, scope.name + '_2', 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 64, scope.name, 'relu')
+            #data = self.dropout(data, isTrain, dropout)
             print('[model] data shape at fc3 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc4') as scope:
             data = self.fc(data, 1, scope.name)
-            data = self.dropout(data, isTrain, dropout)
+            #data = self.dropout(data, isTrain, dropout)
             print('[model] data shape at fc4 = {0}'.format(data.shape))
 
         return data

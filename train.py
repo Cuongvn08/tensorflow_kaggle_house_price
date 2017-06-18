@@ -44,28 +44,67 @@ def get_batches(data_len, batch_size):
     return zip(batch_starts, batch_ends)
 
 # get loss
-def get_loss(logits, labels, method='L1'):
+def get_loss(logits, labels, method='L1', weights=None, l2_beta=0.0):
+    # compute loss
     if method == 'L1':
         diff = tf.abs(logits - labels)
     else:
-        diff = tf.square(logits - labels)
+        diff = tf.square(logits - labels)/2
 
     loss = tf.reduce_mean(diff)
+
+    # add L2 regularization to loss
+    if weights is not None and l2_beta > 0.0:
+        l2_regu = 0.0
+        for key in weights:
+            l2_regu += tf.nn.l2_loss(weights[key])
+        loss = tf.add(loss, tf.multiply(l2_beta,l2_regu))
 
     return loss
 
 # get optimizer
 def get_optimizer(learning_rate):
+    '''
     return tf.train.AdamOptimizer(learning_rate = learning_rate,
                                   beta1 = 0.9,
                                   beta2 = 0.999,
                                   epsilon = 1e-10,
                                   use_locking = False,
                                   name = 'Adam')
+    '''
+
+    return tf.train.GradientDescentOptimizer(learning_rate = learning_rate,
+                                             use_locking = False,
+                                             name = 'GradientDescent')
+
+    '''
+    return tf.train.RMSPropOptimizer(learning_rate = learning_rate,
+                                     decay = 0.9,
+                                     momentum = 0.0,
+                                     epsilon = 1e-10,
+                                     use_locking = False,
+                                     centered = False,
+                                     name = 'RMSProp')
+    '''
+
+def print_log(logger, str):
+    print(str)
+    logger.write(str + '\n')
+    logger.flush()
+
 
 ################################################################################
 ## MAIN PROGRAM
 ################################################################################
+# create log file
+with tf.name_scope('logger'):
+    log_path = 'result/log.txt'
+    if os.path.exists(log_path):
+        os.remove(log_path)
+
+    logger = open(log_path, 'w')
+    logger.write('Hello world.\n\n')
+
 # create session
 with tf.name_scope('session'):
     sess = tf.Session()
@@ -101,8 +140,8 @@ with tf.name_scope('model'):
 
 # get train opt
 with tf.name_scope('train'):
-    train_logit = model.logit(data, True, cfig[eKey.dropout])
-    train_cost = get_loss(train_logit, label, method='L1')
+    train_logit = model.logit(data, True, cfig[eKey.dropout], logger)
+    train_cost = get_loss(train_logit, label, method='L2')
     train_opt = get_optimizer(cfig[eKey.learning_rate]).minimize(train_cost)
 
     train_summary_list = []
@@ -113,7 +152,7 @@ with tf.name_scope('train'):
 with tf.name_scope('eval'):
     tf.get_variable_scope().reuse_variables()
     eval_logit = model.logit(data, False)
-    eval_cost = get_loss(eval_logit, label, method='L2')
+    eval_cost = get_loss(eval_logit, label, method='L1')
 
     pred = eval_logit
 
@@ -146,8 +185,10 @@ with tf.name_scope('saver'):
 # train
 train_batches = get_batches(train_data.shape[0], cfig[eKey.batch_size])
 for start, end in train_batches:
-    print('[train] train_batches: start={0}, end={1}'.format(start, end))
+    str = '[train] train_batches: start={0}, end={1}'.format(start, end)
+    print_log(logger, str)
 
+logger.write('\n')
 with tf.name_scope('train'):
     with tf.device('/cpu:%d' % 0):
     #with tf.device('/gpu:%d' % 0):
@@ -177,11 +218,24 @@ with tf.name_scope('train'):
                 # log and print
                 elapsed_time = time.time() - start_time
                 date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                str = '[train] {0} step {1:04}: tCost = {2:0.5}; eCost = {3:0.5}; time = {4:0.5}(s);'.\
+                    format(date_time, step, np.mean(train_costs), eCost, elapsed_time)
+                print_log(logger,str)
+
+                '''
                 print('[train] ' + '%s '    % date_time
                       + 'step %04d: '       % step
                       + 'tCost = %0.5f; '   % np.mean(train_costs)
                       + 'eCost = %0.5f; '   % eCost
                       + 'time = %0.5f(s); ' % elapsed_time)
+                logger.write('[train] ' + '%s '    % date_time
+                             + 'step %04d: '       % step
+                             + 'tCost = %0.5f; '   % np.mean(train_costs)
+                             + 'eCost = %0.5f; '   % eCost
+                             + 'time = %0.5f(s); ' % elapsed_time
+                             + '\n')
+                logger.flush()
+                '''
 
                 # save summaries
                 summary_writer.add_summary(tSummary, step)
@@ -191,3 +245,7 @@ with tf.name_scope('train'):
                 # save checkpoint
                 saver.save(sess, cfig[eKey.checkpoint_dir] + 'chk_step_%d.ckpt' % step)
 
+
+logger.write('The end.')
+logger.close()
+print('The end.')
