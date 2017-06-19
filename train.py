@@ -63,29 +63,29 @@ def get_loss(logits, labels, method='L1', weights=None, l2_beta=0.0):
     return loss
 
 # get optimizer
-def get_optimizer(learning_rate):
-    '''
-    return tf.train.AdamOptimizer(learning_rate = learning_rate,
-                                  beta1 = 0.9,
-                                  beta2 = 0.999,
-                                  epsilon = 1e-10,
-                                  use_locking = False,
-                                  name = 'Adam')
-    '''
+def get_optimizer(learning_rate, optimizer):
+    if optimizer == eOptimizer.Adam:
+        return tf.train.AdamOptimizer(learning_rate = learning_rate,
+                                      beta1 = 0.9,
+                                      beta2 = 0.999,
+                                      epsilon = 1e-10,
+                                      use_locking = False,
+                                      name = 'Adam')
+    elif optimizer == eOptimizer.GD:
+        return tf.train.GradientDescentOptimizer(learning_rate = learning_rate,
+                                                 use_locking = False,
+                                                 name = 'GradientDescent')
 
-    return tf.train.GradientDescentOptimizer(learning_rate = learning_rate,
-                                             use_locking = False,
-                                             name = 'GradientDescent')
-
-    '''
-    return tf.train.RMSPropOptimizer(learning_rate = learning_rate,
-                                     decay = 0.9,
-                                     momentum = 0.0,
-                                     epsilon = 1e-10,
-                                     use_locking = False,
-                                     centered = False,
-                                     name = 'RMSProp')
-    '''
+    elif optimizer == eOptimizer.RMS:
+        return tf.train.RMSPropOptimizer(learning_rate = learning_rate,
+                                         decay = 0.9,
+                                         momentum = 0.0,
+                                         epsilon = 1e-10,
+                                         use_locking = False,
+                                         centered = False,
+                                         name = 'RMSProp')
+    else:
+        assert 'optimizer error.'
 
 def print_log(logger, str):
     print(str)
@@ -101,6 +101,7 @@ with tf.name_scope('logger'):
     log_path = 'result/log.txt'
     if os.path.exists(log_path):
         os.remove(log_path)
+    os.makedirs(os.path.dirname(log_path))
 
     logger = open(log_path, 'w')
     logger.write('Hello world.\n\n')
@@ -142,7 +143,7 @@ with tf.name_scope('model'):
 with tf.name_scope('train'):
     train_logit = model.logit(data, True, cfig[eKey.dropout], logger)
     train_cost = get_loss(train_logit, label, method='L2')
-    train_opt = get_optimizer(cfig[eKey.learning_rate]).minimize(train_cost)
+    train_opt = get_optimizer(cfig[eKey.learning_rate], cfig[eKey.optimizer]).minimize(train_cost)
 
     train_summary_list = []
     train_summary_list.append(tf.summary.scalar('train_cost', train_cost))
@@ -221,21 +222,6 @@ with tf.name_scope('train'):
                 str = '[train] {0} step {1:04}: tCost = {2:0.5}; eCost = {3:0.5}; time = {4:0.5}(s);'.\
                     format(date_time, step, np.mean(train_costs), eCost, elapsed_time)
                 print_log(logger,str)
-
-                '''
-                print('[train] ' + '%s '    % date_time
-                      + 'step %04d: '       % step
-                      + 'tCost = %0.5f; '   % np.mean(train_costs)
-                      + 'eCost = %0.5f; '   % eCost
-                      + 'time = %0.5f(s); ' % elapsed_time)
-                logger.write('[train] ' + '%s '    % date_time
-                             + 'step %04d: '       % step
-                             + 'tCost = %0.5f; '   % np.mean(train_costs)
-                             + 'eCost = %0.5f; '   % eCost
-                             + 'time = %0.5f(s); ' % elapsed_time
-                             + '\n')
-                logger.flush()
-                '''
 
                 # save summaries
                 summary_writer.add_summary(tSummary, step)
