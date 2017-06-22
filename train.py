@@ -101,7 +101,10 @@ with tf.name_scope('logger'):
     log_path = 'result/log.txt'
     if os.path.exists(log_path):
         os.remove(log_path)
-    os.makedirs(os.path.dirname(log_path))
+
+    log_dir = os.path.dirname(log_path)
+    if not os.path.exists(log_dir):
+        os.makedirs(os.path.dirname(log_path))
 
     logger = open(log_path, 'w')
     logger.write('Hello world.\n\n')
@@ -142,7 +145,7 @@ with tf.name_scope('model'):
 # get train opt
 with tf.name_scope('train'):
     train_logit = model.logit(data, True, cfig[eKey.dropout], logger)
-    train_cost = get_loss(train_logit, label, method='L2')
+    train_cost = get_loss(train_logit, label, method='L2', weights=model.get_weights(), l2_beta=cfig[eKey.l2_beta])
     train_opt = get_optimizer(cfig[eKey.learning_rate], cfig[eKey.optimizer]).minimize(train_cost)
 
     train_summary_list = []

@@ -56,9 +56,7 @@ class Data():
             os.remove(encoder_path)
 
         # load data
-        # must set keep_default_na False, otherwise it will keep the default NA
-        # that causes the values of feature is not only string but also number
-        df = pd.read_csv(data_path) #, keep_default_na=False)
+        df = pd.read_csv(data_path)
         df = df.drop(['Id'], 1)
 
         encoded_data = []
@@ -70,8 +68,8 @@ class Data():
         # encode data
         for feature in df:
             data = df[feature]
-
             encoder = None
+
             if df[feature].dtypes == 'object': # categorical feature
                 print('[data] cate feature: ' + feature)
                 data.fillna(value='NA', axis=0, inplace=True)
@@ -80,7 +78,8 @@ class Data():
                 data = encoder.transform(data)
             else: # numeric features
                 print('[data] numeric feature: ' + feature)
-                data.fillna(value=data.mean(), axis=0, inplace=True)
+                #data.fillna(value=data.mean(), axis=0, inplace=True)
+                data.fillna(value=0, axis=0, inplace=True)
                 df[feature] = df[feature].fillna(df[feature].mean())
 
             data = np.array(data, dtype=np.float32)
@@ -137,7 +136,50 @@ class Data():
         print('[data] shape of eval data = {0}'.format(self.eval_data.shape))
         print('[data] shape of eval label = {0}'.format(self.eval_label.shape))
 
-    def read_test_data(self, data_path):
+    def read_test_data(self, data_path, encoder_path):
+        # load data
+        df = pd.read_csv(data_path)
+        df = df.drop(['Id'], 1)
+
+        encoded_data = []
+        encoders = pickle.load(open(encoder_path, 'rb'))
+
+        # encode data
+        for feature, encoder in zip(df, encoders):
+            data = list(df[feature])
+
+            if encoder is not None:
+                data = encoder.transform(data)
+
+            try:
+                data = np.array(data, dtype=np.float32)
+            except ValueError:
+                for n,i in enumerate(data):
+                    if i == 'NA':
+                        data[i] = 0
+                data = np.array(data, dtype=np.float32)
+            encoded_data.append(data)
+
+        # normalize data
+        encoded_data = [np.log1p(da) for da in encoded_data]
+
+        # generate new features after applying encoder
+        num_cur_features = len(encoded_data)
+        num_examples = len(encoded_data[0])
+        all_data = []
+        for i in range(num_examples):
+            data_per_example = []
+            for j in range(num_cur_features):
+                if type(encoded_data[j][i]) is np.ndarray:
+                    data_per_example.extend( encoded_data[j][i] )
+                else:
+                    data_per_example.extend( [encoded_data[j][i]] )
+            all_data.append(data_per_example)
+        all_data = np.asarray(all_data)
+
+        self.test_data = all_data
+        self.test_label = None
+
         '''
         df = pd.read_csv(data_path)
 

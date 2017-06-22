@@ -50,9 +50,9 @@ def get_config():
     config[eKey.data_dtype]    = np.float32
     config[eKey.label_dtype]   = np.float32
 
-    config[eKey.optimizer]     = eOptimizer.Adam
+    config[eKey.optimizer]     = eOptimizer.GD
     config[eKey.learning_rate] = 0.001
-    config[eKey.dropout]       = 0.9
-    config[eKey.l2_beta]       = 0.0001
+    config[eKey.dropout]       = 0.0
+    config[eKey.l2_beta]       = 0.0
 
     return config
