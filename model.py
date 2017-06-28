@@ -10,28 +10,42 @@ class Model:
         self.weights = {}
         self.biases  = {}
 
-    def logit(self, data, isTrain=True, dropout=0.7, logger=None):
+    def logit(self, data, isTrain=True, dropout=0.0):
         print('[model] data shape = {0}'.format(data.shape))
 
         with tf.variable_scope('fc1') as scope:
-            data = self.fc(data, 512, scope.name, 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 2048, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
             print('[model] data shape at fc1 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc2') as scope:
-            data = self.fc(data, 128, scope.name, 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 1024, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
             print('[model] data shape at fc2 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc3') as scope:
-            data = self.fc(data, 64, scope.name, 'relu')
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 512, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
             print('[model] data shape at fc3 = {0}'.format(data.shape))
 
         with tf.variable_scope('fc4') as scope:
-            data = self.fc(data, 1, scope.name)
-            data = self.dropout(data, isTrain, dropout)
+            data = self.fc(data, 256, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
             print('[model] data shape at fc4 = {0}'.format(data.shape))
+
+        with tf.variable_scope('fc5') as scope:
+            data = self.fc(data, 128, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
+            print('[model] data shape at fc5 = {0}'.format(data.shape))
+
+        with tf.variable_scope('fc6') as scope:
+            data = self.fc(data, 64, scope.name, 'relu')
+            data = self.dropout(data, isTrain, dropout, scope.name)
+            print('[model] data shape at fc6 = {0}'.format(data.shape))
+
+        with tf.variable_scope('fc7') as scope:
+            data = self.fc(data, 1, scope.name)
+            print('[model] data shape at fc7 = {0}'.format(data.shape))
 
         return data
 
@@ -56,10 +70,10 @@ class Model:
 
         return data
 
-    def dropout(self, data, isTrain, dropout):
+    def dropout(self, data, isTrain, dropout, name):
         if isTrain:
             if (dropout > 0.0) and (dropout < 1.0):
-                data = tf.nn.dropout(data, dropout)
+                data = tf.nn.dropout(data, dropout, name=name)
         return data
 
     def get_weights_var(self, weights_name, weights_shape):

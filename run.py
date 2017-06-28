@@ -8,7 +8,7 @@ import os
 
 
 # set meta file
-best_step = 20
+best_step = 2285
 meta_name = 'chk_step_%d.ckpt' % best_step
 
 # write csv

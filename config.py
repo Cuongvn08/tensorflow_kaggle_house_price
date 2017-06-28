@@ -42,15 +42,15 @@ def get_config():
     config[eKey.checkpoint_dir]= 'result/checkpoint/'
     config[eKey.output_dir]    = 'result/output/'
 
-    config[eKey.train_ratio]   = 0.99
-    config[eKey.batch_size]    = 100
+    config[eKey.train_ratio]   = 0.95
+    config[eKey.batch_size]    = 500
     config[eKey.num_epoch]     = 10000
-    config[eKey.eval_step]     = 1
+    config[eKey.eval_step]     = 5
 
     config[eKey.data_dtype]    = np.float32
     config[eKey.label_dtype]   = np.float32
 
-    config[eKey.optimizer]     = eOptimizer.GD
+    config[eKey.optimizer]     = eOptimizer.Adam
     config[eKey.learning_rate] = 0.001
     config[eKey.dropout]       = 0.0
     config[eKey.l2_beta]       = 0.0

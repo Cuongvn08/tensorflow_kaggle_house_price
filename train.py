@@ -107,7 +107,7 @@ with tf.name_scope('logger'):
         os.makedirs(os.path.dirname(log_path))
 
     logger = open(log_path, 'w')
-    logger.write('Hello world.\n\n')
+    print_log(logger, 'kaggle_house_price')
 
 # create session
 with tf.name_scope('session'):
@@ -144,7 +144,7 @@ with tf.name_scope('model'):
 
 # get train opt
 with tf.name_scope('train'):
-    train_logit = model.logit(data, True, cfig[eKey.dropout], logger)
+    train_logit = model.logit(data, True, cfig[eKey.dropout])
     train_cost = get_loss(train_logit, label, method='L2', weights=model.get_weights(), l2_beta=cfig[eKey.l2_beta])
     train_opt = get_optimizer(cfig[eKey.learning_rate], cfig[eKey.optimizer]).minimize(train_cost)
 
@@ -189,8 +189,7 @@ with tf.name_scope('saver'):
 # train
 train_batches = get_batches(train_data.shape[0], cfig[eKey.batch_size])
 for start, end in train_batches:
-    str = '[train] train_batches: start={0}, end={1}'.format(start, end)
-    print_log(logger, str)
+    print_log(logger, '[train] train_batches: start={0}, end={1}'.format(start, end))
 
 logger.write('\n')
 with tf.name_scope('train'):
@@ -233,7 +232,6 @@ with tf.name_scope('train'):
 
                 # save checkpoint
                 saver.save(sess, cfig[eKey.checkpoint_dir] + 'chk_step_%d.ckpt' % step)
-
 
 logger.write('The end.')
 logger.close()

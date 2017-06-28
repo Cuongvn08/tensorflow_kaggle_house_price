@@ -70,17 +70,17 @@ class Data():
             data = df[feature]
             encoder = None
 
-            if df[feature].dtypes == 'object': # categorical feature
+            # categorical feature
+            if df[feature].dtypes == 'object':
                 print('[data] cate feature: ' + feature)
                 data.fillna(value='NA', axis=0, inplace=True)
                 encoder = LabelBinarizer()
                 encoder.fit(list(set(data)))
                 data = encoder.transform(data)
-            else: # numeric features
+            # numeric features
+            else:
                 print('[data] numeric feature: ' + feature)
-                #data.fillna(value=data.mean(), axis=0, inplace=True)
                 data.fillna(value=0, axis=0, inplace=True)
-                df[feature] = df[feature].fillna(df[feature].mean())
 
             data = np.array(data, dtype=np.float32)
             encoded_data.append(data)
@@ -88,7 +88,7 @@ class Data():
         pickle.dump(encoders, open(encoder_path, 'wb'))
 
         # normalize data
-        encoded_data = [np.log1p(da) for da in encoded_data]
+        encoded_data = [np.log(da + 1) for da in encoded_data]
 
         # generate new features after applying encoder
         num_cur_features = len(encoded_data)
@@ -146,18 +146,16 @@ class Data():
 
         # encode data
         for feature, encoder in zip(df, encoders):
-            data = list(df[feature])
+            data = df[feature]
+            if data.dtypes == 'object':
+                data.fillna(value='NA', axis=0, inplace=True)
+            else:
+                data.fillna(value=0, axis=0, inplace=True)
 
             if encoder is not None:
-                data = encoder.transform(data)
+                data = encoder.transform(list(data))
 
-            try:
-                data = np.array(data, dtype=np.float32)
-            except ValueError:
-                for n,i in enumerate(data):
-                    if i == 'NA':
-                        data[i] = 0
-                data = np.array(data, dtype=np.float32)
+            data = np.array(data, dtype=np.float32)
             encoded_data.append(data)
 
         # normalize data
@@ -180,15 +178,8 @@ class Data():
         self.test_data = all_data
         self.test_label = None
 
-        '''
-        df = pd.read_csv(data_path)
-
-        self.test_data = df.values[:,:].reshape([-1, 28, 28, 1])
-        self.test_label = None
-
         print('[data] shape of test data = {0}'.format(self.test_data.shape))
         print('[data] shape of test label = None')
-        '''
 
     def get_train_data(self):
         return self.train_data
