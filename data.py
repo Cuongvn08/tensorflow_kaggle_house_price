@@ -159,7 +159,7 @@ class Data():
             encoded_data.append(data)
 
         # normalize data
-        encoded_data = [np.log1p(da) for da in encoded_data]
+        encoded_data = [np.log(da + 1) for da in encoded_data]
 
         # generate new features after applying encoder
         num_cur_features = len(encoded_data)
