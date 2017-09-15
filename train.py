@@ -1,238 +1,159 @@
 # -*- coding: utf-8 -*-
 
-import os
-import shutil
-import time
-from datetime import datetime
-
+from enum import Enum
 import numpy as np
-import tensorflow as tf
-from config import *
-from data import *
-from model import Model
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+from scipy.stats import norm, skew
 
 
-''' numeric features
+### STEP1: settings
+class settings(Enum):
+    train_path    = 'data/train.csv'
+    test_path     = 'data/test.csv'
+
+    def __str__(self):
+        return self.value
+    
+### STEP2: data processing
+numeric_features = \
 ['MSSubClass', 'LotFrontage', 'LotArea', 'OverallQual', 'OverallCond',
-       'YearBuilt', 'YearRemodAdd', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2',
-       'BsmtUnfSF', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF',
-       'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath',
-       'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
-       'GarageYrBlt', 'GarageCars', 'GarageArea', 'WoodDeckSF', 'OpenPorchSF',
-       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal',
-       'MoSold', 'YrSold']
-'''
+'YearBuilt', 'YearRemodAdd', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2',
+'BsmtUnfSF', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF',
+'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath',
+'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
+'GarageYrBlt', 'GarageCars', 'GarageArea', 'WoodDeckSF', 'OpenPorchSF',
+'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal',
+'MoSold', 'YrSold']
 
-''' categorical features
+categorical_features = \
 ['MSZoning', 'Street', 'Alley', 'LotShape', 'LandContour', 'Utilities',
-       'LotConfig', 'LandSlope', 'Neighborhood', 'Condition1', 'Condition2',
-       'BldgType', 'HouseStyle', 'RoofStyle', 'RoofMatl', 'Exterior1st',
-       'Exterior2nd', 'MasVnrType', 'ExterQual', 'ExterCond', 'Foundation',
-       'BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2',
-       'Heating', 'HeatingQC', 'CentralAir', 'Electrical', 'KitchenQual',
-       'Functional', 'FireplaceQu', 'GarageType', 'GarageFinish', 'GarageQual',
-       'GarageCond', 'PavedDrive', 'PoolQC', 'Fence', 'MiscFeature',
-       'SaleType', 'SaleCondition']
-'''
-################################################################################
-## HELPFUL FUNCTIONS
-################################################################################
-# get batches
-def get_batches(data_len, batch_size):
-    batch_starts = range(0, data_len, batch_size)
-    batch_ends = [batch_start + batch_size for batch_start in batch_starts]
-    return zip(batch_starts, batch_ends)
+'LotConfig', 'LandSlope', 'Neighborhood', 'Condition1', 'Condition2',
+'BldgType', 'HouseStyle', 'RoofStyle', 'RoofMatl', 'Exterior1st',
+'Exterior2nd', 'MasVnrType', 'ExterQual', 'ExterCond', 'Foundation',
+'BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2',
+'Heating', 'HeatingQC', 'CentralAir', 'Electrical', 'KitchenQual',
+'Functional', 'FireplaceQu', 'GarageType', 'GarageFinish', 'GarageQual',
+'GarageCond', 'PavedDrive', 'PoolQC', 'Fence', 'MiscFeature',
+'SaleType', 'SaleCondition']
 
-# get loss
-def get_loss(logits, labels, method='L1', weights=None, l2_beta=0.0):
-    # compute loss
-    if method == 'L1':
-        diff = tf.abs(logits - labels)
+def display_outlier(pd, feature=None):
+    if feature is not None:
+        fig, ax = plt.subplots()
+        ax.scatter(x = pd[feature], y = pd['SalePrice'])
+        plt.ylabel('SalePrice', fontsize=13)
+        plt.xlabel(feature, fontsize=13)
+        plt.show()      
     else:
-        diff = tf.square(logits - labels)/2
-
-    loss = tf.reduce_mean(diff)
-
-    # add L2 regularization to loss
-    if weights is not None and l2_beta > 0.0:
-        l2_regu = 0.0
-        for key in weights:
-            l2_regu += tf.nn.l2_loss(weights[key])
-        loss = tf.add(loss, tf.multiply(l2_beta,l2_regu))
-
-    return loss
-
-# get optimizer
-def get_optimizer(learning_rate, optimizer):
-    if optimizer == eOptimizer.Adam:
-        return tf.train.AdamOptimizer(learning_rate = learning_rate,
-                                      beta1 = 0.9,
-                                      beta2 = 0.999,
-                                      epsilon = 1e-10,
-                                      use_locking = False,
-                                      name = 'Adam')
-    elif optimizer == eOptimizer.GD:
-        return tf.train.GradientDescentOptimizer(learning_rate = learning_rate,
-                                                 use_locking = False,
-                                                 name = 'GradientDescent')
-
-    elif optimizer == eOptimizer.RMS:
-        return tf.train.RMSPropOptimizer(learning_rate = learning_rate,
-                                         decay = 0.9,
-                                         momentum = 0.0,
-                                         epsilon = 1e-10,
-                                         use_locking = False,
-                                         centered = False,
-                                         name = 'RMSProp')
+        for feature in numeric_features:
+            fig, ax = plt.subplots()
+            ax.scatter(x = pd[feature], y = pd['SalePrice'])
+            plt.ylabel('SalePrice', fontsize=13)
+            plt.xlabel(feature, fontsize=13)
+            plt.show()
+        
+def display_distrib(pd, feature=None):
+    if feature is not None:
+        plt.figure()
+        sns.distplot(pd[feature] , fit=norm);
+        (mu, sigma) = norm.fit(pd[feature])    
+        
+        plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)], loc='best')
+        plt.ylabel('Frequency')
+        plt.title('SalePrice distribution')
+        plt.show()
     else:
-        assert 'optimizer error.'
+        for feature in numeric_features:
+            plt.figure()
+            sns.distplot(pd[feature] , fit=norm);
+            (mu, sigma) = norm.fit(pd[feature])    
+            
+            plt.legend(['Normal dist. ($\mu=$ {:.2f} and $\sigma=$ {:.2f} )'.format(mu, sigma)], loc='best')
+            plt.ylabel('Frequency')
+            plt.title('SalePrice distribution')
+            plt.show()
+        
+def data_processing(train_path, test_path):
+    print('[data_processing] ', train_path)
+    print('[data_processing] ', test_path)
+    
+    # load data
+    train = pd.read_csv(str(train_path))
+    test = pd.read_csv(str(test_path))
+        
+    #print('[data_processing] ', train.head(5))
+    #print('[data_processing] ', test.head(5))
+    
+    # drop ID feature
+    print('[data_processing] ', 'The train data size before dropping Id: {} '.format(train.shape))
+    print('[data_processing] ', 'The test data size before dropping Id: {} '.format(test.shape))
+    
+    train.drop('Id', axis = 1, inplace = True)
+    test.drop('Id', axis = 1, inplace = True)
+    
+    print('[data_processing] ', 'The train data size after dropping Id: {} '.format(train.shape))
+    print('[data_processing] ', 'The test data size after dropping Id: {} '.format(test.shape))    
+    
+    # analyze and remove huge outliers: GrLivArea, ...
+    display_outlier(train, 'GrLivArea')
+    train = train.drop(train[(train['GrLivArea']>4000) & (train['SalePrice']<300000)].index)
+    display_outlier(train, 'GrLivArea')
+      
+    # analyze and normalize distribution of the target feature (SalePrice)
+    display_distrib(train, 'SalePrice')
+    train["SalePrice"] = np.log1p(train["SalePrice"])
+    display_distrib(train, 'SalePrice')
+    
+    # concatenate the train and test data
+    all_data = pd.concat((train, test)).reset_index(drop=True)
+    all_data.drop(['SalePrice'], axis=1, inplace=True)
+    print('[data_processing] ', 'all_data size is : {}'.format(all_data.shape))    
+    
+    # fill missing data
+    all_data_na = (all_data.isnull().sum() / len(all_data)) * 100
+    all_data_na = all_data_na.drop(all_data_na[all_data_na == 0].index).sort_values(ascending=False)[:30]
+    missing_data = pd.DataFrame({'Missing Ratio' :all_data_na})
+    print('[data_processing] ', missing_data)
 
-def print_log(logger, str):
-    print(str)
-    logger.write(str + '\n')
-    logger.flush()
+    all_data["PoolQC"] = all_data["PoolQC"].fillna("None") #NA means "No Pool"
+    all_data["MiscFeature"] = all_data["MiscFeature"].fillna("None") #NA means "no misc feature"
+    all_data["Alley"] = all_data["Alley"].fillna("None") #NA means "no alley access"
+    all_data["Fence"] = all_data["Fence"].fillna("None") #NA means "no fence"
+    all_data["FireplaceQu"] = all_data["FireplaceQu"].fillna("None") #NA means "no fireplace"
+    all_data["LotFrontage"] = all_data.groupby("Neighborhood")["LotFrontage"].\
+                                transform(lambda x: x.fillna(x.median())) # fill by the
+                                # median LotFrontage of all neighborhood because they
+                                # have same lot frontage
+    for col in ('GarageType', 'GarageFinish', 'GarageQual', 'GarageCond'):
+        all_data[col] = all_data[col].fillna('None')
+    for col in ('GarageYrBlt', 'GarageArea', 'GarageCars'):
+        all_data[col] = all_data[col].fillna(0)
+    for col in ('BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF','TotalBsmtSF', 'BsmtFullBath', 'BsmtHalfBath'):
+        all_data[col] = all_data[col].fillna(0)
+    for col in ('BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2'):
+        all_data[col] = all_data[col].fillna('None') #NaN means that there is no basement
+    
+    
+    
+    
+    
+    
+    
+### STEP3: model
+def model():
+    pass
 
+### STEP 4: loss optimization
+def loss_optimization():
+    pass
+    
+### STEP 5: analysis
+def analysis():
+    pass
 
-################################################################################
-## MAIN PROGRAM
-################################################################################
-# create log file
-with tf.name_scope('logger'):
-    log_path = 'result/log.txt'
-    if os.path.exists(log_path):
-        os.remove(log_path)
+### MAIN
+data_processing(settings.train_path, settings.test_path)
 
-    log_dir = os.path.dirname(log_path)
-    if not os.path.exists(log_dir):
-        os.makedirs(os.path.dirname(log_path))
-
-    logger = open(log_path, 'w')
-    print_log(logger, 'kaggle_house_price')
-
-# create session
-with tf.name_scope('session'):
-    sess = tf.Session()
-
-# load config
-with tf.name_scope('load_config'):
-    cfig = get_config()
-
-# load data
-with tf.name_scope('load_data'):
-    data = Data()
-    data.read_train_data(cfig[eKey.train_path], cfig[eKey.encoder_path], cfig[eKey.train_ratio])
-
-    train_data  = data.get_train_data()
-    train_label = data.get_train_label()
-
-    eval_data  = data.get_eval_data()
-    eval_label = data.get_eval_label()
-
-# create placeholder
-with tf.name_scope('placeholder'):
-    num_features = train_data.shape[1]
-
-    data = tf.placeholder(cfig[eKey.data_dtype], shape=[None, num_features], name='data')
-    label = tf.placeholder(cfig[eKey.label_dtype], shape=[None], name='label')
-
-    tf.add_to_collection('data', data)
-    tf.add_to_collection('label', label)
-
-# create model
-with tf.name_scope('model'):
-    model = Model()
-
-# get train opt
-with tf.name_scope('train'):
-    train_logit = model.logit(data, True, cfig[eKey.dropout])
-    train_cost = get_loss(train_logit, label, method='L2', weights=model.get_weights(), l2_beta=cfig[eKey.l2_beta])
-    train_opt = get_optimizer(cfig[eKey.learning_rate], cfig[eKey.optimizer]).minimize(train_cost)
-
-    train_summary_list = []
-    train_summary_list.append(tf.summary.scalar('train_cost', train_cost))
-    train_summary_merge = tf.summary.merge(train_summary_list)
-
-# get eval opt
-with tf.name_scope('eval'):
-    tf.get_variable_scope().reuse_variables()
-    eval_logit = model.logit(data, False)
-    eval_cost = get_loss(eval_logit, label, method='L1')
-
-    pred = eval_logit
-
-    eval_summary_list = []
-    eval_summary_list.append(tf.summary.scalar('eval_cost', eval_cost))
-    eval_summary_merge = tf.summary.merge(eval_summary_list)
-
-    tf.add_to_collection('pred', pred)
-
-# initialize variables
-with tf.name_scope('initialize_variables'):
-    sess.run(tf.global_variables_initializer())
-
-# create summary
-with tf.name_scope('summary'):
-    if os.path.exists(cfig[eKey.log_dir]) is True:
-        shutil.rmtree(cfig[eKey.log_dir])
-    os.makedirs(cfig[eKey.log_dir])
-
-    summary_writer = tf.summary.FileWriter(cfig[eKey.log_dir], sess.graph)
-
-# create saver
-with tf.name_scope('saver'):
-    if os.path.exists(cfig[eKey.checkpoint_dir]) is True:
-        shutil.rmtree(cfig[eKey.checkpoint_dir])
-    os.makedirs(cfig[eKey.checkpoint_dir])
-
-    saver = tf.train.Saver(max_to_keep = None)
-
-# train
-train_batches = get_batches(train_data.shape[0], cfig[eKey.batch_size])
-for start, end in train_batches:
-    print_log(logger, '[train] train_batches: start={0}, end={1}'.format(start, end))
-
-logger.write('\n')
-with tf.name_scope('train'):
-    with tf.device('/cpu:%d' % 0):
-    #with tf.device('/gpu:%d' % 0):
-        for step in range(cfig[eKey.num_epoch]):
-            # train
-            start_time = time.time()
-            train_fetches = [train_logit, train_cost, train_opt, train_summary_merge]
-
-            train_costs = []
-            train_batches = get_batches(train_data.shape[0], cfig[eKey.batch_size])
-            for start, end in train_batches:
-                feed_dict = {}
-                feed_dict[data] = train_data[start:end]
-                feed_dict[label] = train_label[start:end]
-                [_, tCost, _, tSummary] = sess.run(train_fetches, feed_dict)
-                train_costs.append(tCost)
-
-            # eval
-            if step % cfig[eKey.eval_step] == 0:
-                eval_fetches = [eval_logit, eval_cost, pred, eval_summary_merge]
-
-                feed_dict = {}
-                feed_dict[data] = eval_data
-                feed_dict[label] = eval_label
-                [_, eCost, ePred, eSummary] = sess.run(eval_fetches, feed_dict)
-
-                # log and print
-                elapsed_time = time.time() - start_time
-                date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                str = '[train] {0} step {1:04}: tCost = {2:0.5}; eCost = {3:0.5}; time = {4:0.5}(s);'.\
-                    format(date_time, step, np.mean(train_costs), eCost, elapsed_time)
-                print_log(logger,str)
-
-                # save summaries
-                summary_writer.add_summary(tSummary, step)
-                summary_writer.add_summary(eSummary, step)
-                summary_writer.flush()
-
-                # save checkpoint
-                saver.save(sess, cfig[eKey.checkpoint_dir] + 'chk_step_%d.ckpt' % step)
-
-logger.write('The end.')
-logger.close()
-print('The end.')
+print('[main] ', 'The end!')
