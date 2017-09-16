@@ -1,4 +1,4 @@
-# A tensorflow based standard NN to explore data and linear regression for Kaggle house price competition
+# A tensorflow based standard NN to explore data and linear regression for Kaggle house price competition (Score 0.4)
 
 This project presents how to use Tensorflow to implement a standard NN for Kaggle
 house price competition.
