@@ -1,0 +1,47 @@
+[data_processing]  all_data size is : (2917, 79)
+[data_processing]                Missing Ratio
+PoolQC            99.691464
+MiscFeature       96.400411
+Alley             93.212204
+Fence             80.425094
+FireplaceQu       48.680151
+LotFrontage       16.660953
+GarageFinish       5.450806
+GarageYrBlt        5.450806
+GarageQual         5.450806
+GarageCond         5.450806
+GarageType         5.382242
+BsmtExposure       2.811107
+BsmtCond           2.811107
+BsmtQual           2.776826
+BsmtFinType2       2.742544
+BsmtFinType1       2.708262
+MasVnrType         0.822763
+MasVnrArea         0.788481
+MSZoning           0.137127
+BsmtFullBath       0.068564
+BsmtHalfBath       0.068564
+Utilities          0.068564
+Functional         0.068564
+Exterior2nd        0.034282
+Exterior1st        0.034282
+SaleType           0.034282
+BsmtFinSF1         0.034282
+BsmtFinSF2         0.034282
+BsmtUnfSF          0.034282
+Electrical         0.034282
+[data_processing]  Shape all_data: (2917, 79)
+[data_processing]  (2917, 220)
+[model]  Lasso score(cv): 0.1117 (0.0073)
+[model]  ElasticNet score(cv): 0.1116 (0.0074)
+[model]  Kernel Ridge score(cv): 0.1158 (0.0075)
+[model]  Gradient Boosting score(cv): 0.1163 (0.0087)
+[model]  Xgboost score(cv): 0.1159 (0.0064)
+[model]  LGBM score(cv): 0.1158 (0.0063)
+[model]  Averaged base models score(cv): 0.1088 (0.0076)
+[model]  Stacked averaged-models score(cv): 0.1084 (0.0070)
+[model]  stacked regressor: 0.0777923117751
+[model]  xgboost: 0.07863191395
+[model]  LightGBMs: 0.0732362946687
+[model]  ensemble: 0.0751173540293
+The end!
